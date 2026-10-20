@@ -11,12 +11,19 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
-  PlusCircle
+  PlusCircle,
+  MinusCircle
 } from 'lucide-react';
 import { Student } from '../../types';
 import { useStudents } from '../../context/StudentContext';
 import { formatPhoneForWhatsApp, formatPhoneForTel } from '../../utils/exportUtils';
-import { formatMonthLabel, formatDisplayDate, getRecentMonths, getCurrentMonthKey } from '../../utils/dateUtils';
+import {
+  formatMonthLabel,
+  formatDisplayDate,
+  getRecentMonths,
+  getCurrentMonthKey,
+  isMonthBeforeJoining
+} from '../../utils/dateUtils';
 
 interface StudentDetailModalProps {
   isOpen: boolean;
@@ -216,8 +223,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
             <div className="space-y-2">
               {monthsTimeline.map((monthKey) => {
+                const isEnrolled = !isMonthBeforeJoining(monthKey, student.joiningDate);
                 const record = student.feeRecords[monthKey];
-                const status = record?.status || 'DUE';
+                const status = isEnrolled ? (record?.status || 'DUE') : 'NOT_ENROLLED';
                 const amount = record?.amountPaid ?? 0;
                 const isCurrent = monthKey === currentMonth;
 
@@ -227,12 +235,16 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     className={`flex items-center justify-between p-3 rounded-2xl border transition ${
                       isCurrent
                         ? 'bg-blue-950/20 border-blue-800/50'
+                        : !isEnrolled
+                        ? 'bg-slate-900/40 border-slate-800/50 opacity-75'
                         : 'bg-slate-800/40 border-slate-800/80 hover:bg-slate-800/70'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-                        {status === 'PAID' ? (
+                        {!isEnrolled ? (
+                          <MinusCircle className="w-5 h-5 text-slate-600" />
+                        ) : status === 'PAID' ? (
                           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                         ) : status === 'PARTIAL' ? (
                           <AlertTriangle className="w-5 h-5 text-amber-400" />
@@ -243,7 +255,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-sm font-semibold text-white">
+                          <span className={`text-xs sm:text-sm font-semibold ${isEnrolled ? 'text-white' : 'text-slate-400'}`}>
                             {formatMonthLabel(monthKey)}
                           </span>
                           {isCurrent && (
@@ -253,9 +265,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           )}
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          {status === 'PAID' && `Paid on ${formatDisplayDate(record?.paidDate)} ${record?.notes ? `(${record.notes})` : ''}`}
-                          {status === 'PARTIAL' && `Paid ${currencySymbol}${amount} of ${currencySymbol}${student.monthlyFee} ${record?.notes ? `(${record.notes})` : ''}`}
-                          {status === 'DUE' && `Outstanding: ${currencySymbol}${student.monthlyFee}`}
+                          {!isEnrolled && `Not Enrolled (Joined ${formatDisplayDate(student.joiningDate)})`}
+                          {isEnrolled && status === 'PAID' && `Paid on ${formatDisplayDate(record?.paidDate)} ${record?.notes ? `(${record.notes})` : ''}`}
+                          {isEnrolled && status === 'PARTIAL' && `Paid ${currencySymbol}${amount} of ${currencySymbol}${student.monthlyFee} ${record?.notes ? `(${record.notes})` : ''}`}
+                          {isEnrolled && status === 'DUE' && `Outstanding: ${currencySymbol}${student.monthlyFee}`}
                         </p>
                       </div>
                     </div>
@@ -264,25 +277,29 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       <div className="text-right">
                         <span
                           className={`text-xs sm:text-sm font-bold ${
-                            status === 'PAID'
+                            !isEnrolled
+                              ? 'text-slate-500 font-normal'
+                              : status === 'PAID'
                               ? 'text-emerald-400'
                               : status === 'PARTIAL'
                               ? 'text-amber-400'
                               : 'text-rose-400'
                           }`}
                         >
-                          {status === 'PAID' ? `${currencySymbol}${amount}` : status === 'PARTIAL' ? `${currencySymbol}${amount}` : 'Due'}
+                          {!isEnrolled ? '—' : status === 'PAID' ? `${currencySymbol}${amount}` : status === 'PARTIAL' ? `${currencySymbol}${amount}` : 'Due'}
                         </span>
                       </div>
 
-                      <button
-                        onClick={() => onRecordPaymentForMonth(student, monthKey)}
-                        title="Adjust payment for this month"
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium border border-slate-700 transition flex items-center gap-1"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                        <span>Edit</span>
-                      </button>
+                      {isEnrolled && (
+                        <button
+                          onClick={() => onRecordPaymentForMonth(student, monthKey)}
+                          title="Adjust payment for this month"
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium border border-slate-700 transition flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

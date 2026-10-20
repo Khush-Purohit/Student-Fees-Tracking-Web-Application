@@ -61,3 +61,20 @@ export function getRecentMonths(centerMonthKey: string, pastCount = 11, futureCo
   }
   return months;
 }
+
+/**
+ * Gets YYYY-MM from joining date YYYY-MM-DD
+ */
+export function getJoiningMonthKey(joiningDate: string | null | undefined): string {
+  if (!joiningDate) return '1970-01';
+  return joiningDate.slice(0, 7);
+}
+
+/**
+ * Returns true if a given monthKey (YYYY-MM) is strictly before the student's joining date month (YYYY-MM)
+ */
+export function isMonthBeforeJoining(monthKey: string, joiningDate: string | null | undefined): boolean {
+  if (!joiningDate) return false;
+  const joiningMonth = getJoiningMonthKey(joiningDate);
+  return monthKey < joiningMonth;
+}

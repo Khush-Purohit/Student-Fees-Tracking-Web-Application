@@ -6,15 +6,19 @@ import { Header } from './components/common/Header';
 import { MetricCards } from './components/dashboard/MetricCards';
 import { FilterBar } from './components/dashboard/FilterBar';
 import { StudentCard } from './components/dashboard/StudentCard';
+import { StudentDirectory } from './components/students/StudentDirectory';
 import { StudentModal } from './components/students/StudentModal';
 import { StudentDetailModal } from './components/students/StudentDetailModal';
 import { RecordPaymentModal } from './components/students/RecordPaymentModal';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { Student } from './types';
-import { UserX, Plus } from 'lucide-react';
+import { UserX, Plus, Calendar, Users } from 'lucide-react';
 
 const DashboardContent: React.FC = () => {
   const { filteredStudents, students, searchQuery, filterStatus } = useStudents();
+
+  // Tab state: Monthly Ledger vs All Students Directory
+  const [activeTab, setActiveTab] = useState<'LEDGER' | 'DIRECTORY'>('LEDGER');
 
   // Modals state
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -58,51 +62,99 @@ const DashboardContent: React.FC = () => {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Metric Cards */}
-        <MetricCards />
+        {/* Navigation Tabs: Monthly Ledger vs All Students Directory */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <button
+            onClick={() => setActiveTab('LEDGER')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeTab === 'LEDGER'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Monthly Fee Ledger</span>
+          </button>
 
-        {/* Filter Bar */}
-        <FilterBar onAddStudent={handleOpenAddStudent} />
+          <button
+            onClick={() => setActiveTab('DIRECTORY')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeTab === 'DIRECTORY'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>All Students Directory</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                activeTab === 'DIRECTORY' ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              {students.length}
+            </span>
+          </button>
+        </div>
 
-        {/* Student Cards List */}
-        {filteredStudents.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3">
-            {filteredStudents.map((student) => (
-              <StudentCard
-                key={student.id}
-                student={student}
-                onOpenDetail={handleOpenDetail}
-                onRecordPayment={(s) => handleOpenPayment(s)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-10 text-center flex flex-col items-center justify-center my-8">
-            <div className="w-14 h-14 rounded-2xl bg-slate-800/80 text-slate-500 flex items-center justify-center mb-3">
-              <UserX className="w-7 h-7" />
-            </div>
-            <h3 className="text-base font-bold text-white mb-1">
-              {students.length === 0
-                ? 'No students added yet'
-                : searchQuery || filterStatus !== 'ALL'
-                ? 'No matching students found'
-                : 'Student list is empty'}
-            </h3>
-            <p className="text-xs text-slate-400 max-w-sm mb-5">
-              {students.length === 0
-                ? 'Add your students to begin tracking monthly tuition cycles, parent contacts, and fee balances.'
-                : 'Try adjusting your search query or status filter chips.'}
-            </p>
-            {students.length === 0 && (
-              <button
-                onClick={handleOpenAddStudent}
-                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-md shadow-blue-600/25"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Your First Student</span>
-              </button>
+        {/* View 1: Monthly Fee Ledger */}
+        {activeTab === 'LEDGER' && (
+          <div className="space-y-6">
+            {/* Metric Cards */}
+            <MetricCards />
+
+            {/* Filter Bar */}
+            <FilterBar onAddStudent={handleOpenAddStudent} />
+
+            {/* Student Cards List */}
+            {filteredStudents.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3">
+                {filteredStudents.map((student) => (
+                  <StudentCard
+                    key={student.id}
+                    student={student}
+                    onOpenDetail={handleOpenDetail}
+                    onRecordPayment={(s) => handleOpenPayment(s)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-10 text-center flex flex-col items-center justify-center my-8">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800/80 text-slate-500 flex items-center justify-center mb-3">
+                  <UserX className="w-7 h-7" />
+                </div>
+                <h3 className="text-base font-bold text-white mb-1">
+                  {students.length === 0
+                    ? 'No students added yet'
+                    : searchQuery || filterStatus !== 'ALL'
+                    ? 'No matching students found'
+                    : 'Student list is empty'}
+                </h3>
+                <p className="text-xs text-slate-400 max-w-sm mb-5">
+                  {students.length === 0
+                    ? 'Add your students to begin tracking monthly tuition cycles, parent contacts, and fee balances.'
+                    : 'Try adjusting your search query or status filter chips.'}
+                </p>
+                {students.length === 0 && (
+                  <button
+                    onClick={handleOpenAddStudent}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-md shadow-blue-600/25"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Your First Student</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
+        )}
+
+        {/* View 2: All Students Directory */}
+        {activeTab === 'DIRECTORY' && (
+          <StudentDirectory
+            onAddStudent={handleOpenAddStudent}
+            onEditStudent={handleOpenEditStudent}
+            onViewHistory={handleOpenDetail}
+          />
         )}
       </main>
 

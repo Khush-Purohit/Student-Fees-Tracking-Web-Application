@@ -10,7 +10,7 @@ import {
 import { storageService } from '../services/storageService';
 import { syncService } from '../services/syncService';
 import { useAuth } from './AuthContext';
-import { getCurrentMonthKey, getTodayDateString } from '../utils/dateUtils';
+import { getCurrentMonthKey, getTodayDateString, isMonthBeforeJoining } from '../utils/dateUtils';
 
 interface StudentContextType {
   students: Student[];
@@ -43,7 +43,7 @@ const DEMO_STUDENTS: Student[] = [
   {
     id: 'demo-std-1',
     name: 'Aarav Sharma',
-    gradeOrStandard: '10th - ICSE',
+    gradeOrStandard: 'Class 10th',
     fatherName: 'Rajesh Sharma',
     fatherPhone: '+91 98765 43210',
     motherName: 'Sunita Sharma',
@@ -65,7 +65,7 @@ const DEMO_STUDENTS: Student[] = [
   {
     id: 'demo-std-2',
     name: 'Priya Patel',
-    gradeOrStandard: '8th - CBSE',
+    gradeOrStandard: 'Class 8th',
     fatherName: 'Kiran Patel',
     fatherPhone: '+91 98220 12345',
     motherName: 'Bhavna Patel',
@@ -87,7 +87,7 @@ const DEMO_STUDENTS: Student[] = [
   {
     id: 'demo-std-3',
     name: 'Rohan Gupta',
-    gradeOrStandard: '12th - State Board',
+    gradeOrStandard: 'Class 12th',
     fatherName: 'Sanjay Gupta',
     fatherPhone: '+91 99001 54321',
     motherName: 'Meera Gupta',
@@ -348,6 +348,13 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     for (const student of database.students) {
       if (!student.isActive) continue;
 
+      // Requirement 3: Student fee should not be shown due for months before joining date
+      const isEnrolledInMonth = !isMonthBeforeJoining(selectedMonth, student.joiningDate);
+      if (!isEnrolledInMonth) {
+        // Not enrolled in this month: excluded from this month's billing
+        continue;
+      }
+
       totalActive++;
       totalExpected += student.monthlyFee;
 
@@ -394,6 +401,12 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Filter chip match
       if (filterStatus !== 'ALL') {
+        const isEnrolledInMonth = !isMonthBeforeJoining(selectedMonth, student.joiningDate);
+        // If student is not enrolled in selectedMonth, they have no pending or paid fees in this month
+        if (!isEnrolledInMonth) {
+          return false;
+        }
+
         const record = student.feeRecords[selectedMonth];
         const status = record?.status || 'DUE';
 

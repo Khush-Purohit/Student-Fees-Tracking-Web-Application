@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, MapPin, FileText, Calendar, IndianRupee, Save } from 'lucide-react';
-import { Student } from '../../types';
+import { Student, STANDARD_CLASSES } from '../../types';
 import { useStudents } from '../../context/StudentContext';
 import { getTodayDateString } from '../../utils/dateUtils';
 
@@ -175,14 +175,22 @@ export const StudentModal: React.FC<StudentModalProps> = ({
               <label className="block text-xs font-medium text-slate-400 mb-1">
                 Standard / Grade <span className="text-rose-400">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 required
-                placeholder="e.g. 10th - ICSE"
                 value={gradeOrStandard}
                 onChange={(e) => setGradeOrStandard(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 placeholder-slate-500"
-              />
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="" disabled>Select Class (1 to 12th)</option>
+                {STANDARD_CLASSES.map((cls) => (
+                  <option key={cls} value={cls}>
+                    {cls}
+                  </option>
+                ))}
+                {gradeOrStandard && !STANDARD_CLASSES.includes(gradeOrStandard as (typeof STANDARD_CLASSES)[number]) && (
+                  <option value={gradeOrStandard}>{gradeOrStandard}</option>
+                )}
+              </select>
             </div>
           </div>
 
