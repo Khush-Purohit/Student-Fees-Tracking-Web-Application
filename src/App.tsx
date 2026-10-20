@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { StudentProvider, useStudents } from './context/StudentContext';
-import { SetupWizard } from './components/auth/SetupWizard';
-import { LockScreen } from './components/auth/LockScreen';
+import { LoginScreen } from './components/auth/LoginScreen';
 import { Header } from './components/common/Header';
 import { MetricCards } from './components/dashboard/MetricCards';
 import { FilterBar } from './components/dashboard/FilterBar';
@@ -143,14 +142,10 @@ const DashboardContent: React.FC = () => {
 };
 
 const MainFlow: React.FC = () => {
-  const { isConfigured, isUnlocked } = useAuth();
-
-  if (!isConfigured) {
-    return <SetupWizard />;
-  }
+  const { isUnlocked } = useAuth();
 
   if (!isUnlocked) {
-    return <LockScreen />;
+    return <LoginScreen />;
   }
 
   return (

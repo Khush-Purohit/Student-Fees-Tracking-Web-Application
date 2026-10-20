@@ -1,152 +1,77 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { GitHubConfig } from '../types';
-import { encryptWithPin, decryptWithPin } from '../services/cryptoService';
+import { AUTH_CONFIG } from '../config/authConfig';
 import { storageService } from '../services/storageService';
 
 interface AuthContextType {
-  isConfigured: boolean;
   isUnlocked: boolean;
-  isDemoMode: boolean;
+  username: string | null;
   config: GitHubConfig | null;
   pat: string | null;
-  unlock: (pin: string) => Promise<boolean>;
+  isGitHubConfigured: boolean;
+  login: (enteredUsername: string, enteredPassword: string) => boolean;
   lock: () => void;
-  setup: (owner: string, repo: string, branch: string, pat: string, pin: string) => Promise<void>;
-  changePin: (currentPin: string, newPin: string) => Promise<boolean>;
-  enableDemoMode: () => void;
-  exitDemoMode: () => void;
-  resetApp: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [config, setConfig] = useState<GitHubConfig | null>(() => storageService.getGitHubConfig());
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => storageService.isDemoMode());
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  const [username, setUsername] = useState<string | null>(null);
   const [pat, setPat] = useState<string | null>(null);
+  const [config, setConfig] = useState<GitHubConfig | null>(null);
 
   const inactivityTimerRef = useRef<number | null>(null);
 
-  const isConfigured = Boolean(config || isDemoMode);
+  // Check if GitHub is configured in AUTH_CONFIG
+  const isGitHubConfigured = Boolean(
+    AUTH_CONFIG.GITHUB.OWNER?.trim() &&
+    AUTH_CONFIG.GITHUB.REPO?.trim() &&
+    AUTH_CONFIG.GITHUB.PAT?.trim()
+  );
 
-  // Manual Lock
+  // Lock session
   const lock = useCallback(() => {
-    setPat(null);
     setIsUnlocked(false);
+    setPat(null);
   }, []);
 
-  // Unlock with Master PIN
-  const unlock = useCallback(
-    async (pin: string): Promise<boolean> => {
-      if (isDemoMode) {
-        setIsUnlocked(true);
-        return true;
-      }
+  // Login checking against AUTH_CONFIG
+  const login = useCallback((enteredUsername: string, enteredPassword: string): boolean => {
+    const isValid =
+      enteredUsername.trim() === AUTH_CONFIG.USERNAME.trim() &&
+      enteredPassword === AUTH_CONFIG.PASSWORD;
 
-      const currentConfig = config || storageService.getGitHubConfig();
-      if (!currentConfig) {
-        throw new Error('Application is not configured yet.');
-      }
-
-      try {
-        const decryptedPat = await decryptWithPin(
-          currentConfig.encryptedPat,
-          pin,
-          currentConfig.salt,
-          currentConfig.iv
-        );
-
-        if (!decryptedPat) {
-          return false;
-        }
-
-        setPat(decryptedPat);
-        setIsUnlocked(true);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [config, isDemoMode]
-  );
-
-  // First time Setup
-  const setup = useCallback(
-    async (owner: string, repo: string, branch: string, rawPat: string, pin: string) => {
-      const encrypted = await encryptWithPin(rawPat.trim(), pin);
-
-      const newConfig: GitHubConfig = {
-        owner: owner.trim(),
-        repo: repo.trim(),
-        branch: (branch || 'main').trim(),
-        encryptedPat: encrypted.ciphertext,
-        salt: encrypted.salt,
-        iv: encrypted.iv
-      };
-
-      storageService.setGitHubConfig(newConfig);
-      storageService.setDemoMode(false);
-
-      setConfig(newConfig);
-      setIsDemoMode(false);
-      setPat(rawPat.trim());
+    if (isValid) {
       setIsUnlocked(true);
-    },
-    []
-  );
+      setUsername(enteredUsername.trim());
 
-  // Change PIN
-  const changePin = useCallback(
-    async (currentPin: string, newPin: string): Promise<boolean> => {
-      if (!config) return false;
-
-      try {
-        const decryptedPat = await decryptWithPin(
-          config.encryptedPat,
-          currentPin,
-          config.salt,
-          config.iv
-        );
-
-        const newEncrypted = await encryptWithPin(decryptedPat, newPin);
-        const updatedConfig: GitHubConfig = {
-          ...config,
-          encryptedPat: newEncrypted.ciphertext,
-          salt: newEncrypted.salt,
-          iv: newEncrypted.iv
+      // If GitHub config is provided in authConfig.ts, prepare GitHub sync credentials
+      if (
+        AUTH_CONFIG.GITHUB.OWNER?.trim() &&
+        AUTH_CONFIG.GITHUB.REPO?.trim() &&
+        AUTH_CONFIG.GITHUB.PAT?.trim()
+      ) {
+        const ghConfig: GitHubConfig = {
+          owner: AUTH_CONFIG.GITHUB.OWNER.trim(),
+          repo: AUTH_CONFIG.GITHUB.REPO.trim(),
+          branch: (AUTH_CONFIG.GITHUB.BRANCH || 'main').trim(),
+          encryptedPat: '',
+          salt: '',
+          iv: ''
         };
-
-        storageService.setGitHubConfig(updatedConfig);
-        setConfig(updatedConfig);
-        return true;
-      } catch {
-        return false;
+        setConfig(ghConfig);
+        setPat(AUTH_CONFIG.GITHUB.PAT.trim());
+      } else {
+        // Fallback to local storage mode
+        setConfig(null);
+        setPat(null);
       }
-    },
-    [config]
-  );
 
-  // Demo mode
-  const enableDemoMode = useCallback(() => {
-    storageService.setDemoMode(true);
-    setIsDemoMode(true);
-    setIsUnlocked(true);
-  }, []);
+      return true;
+    }
 
-  const exitDemoMode = useCallback(() => {
-    storageService.setDemoMode(false);
-    setIsDemoMode(false);
-    lock();
-  }, [lock]);
-
-  // Reset entire application
-  const resetApp = useCallback(() => {
-    storageService.clearAll();
-    setConfig(null);
-    setIsDemoMode(false);
-    setPat(null);
-    setIsUnlocked(false);
+    return false;
   }, []);
 
   // Inactivity Auto-Lock
@@ -186,18 +111,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider
       value={{
-        isConfigured,
         isUnlocked,
-        isDemoMode,
+        username,
         config,
         pat,
-        unlock,
-        lock,
-        setup,
-        changePin,
-        enableDemoMode,
-        exitDemoMode,
-        resetApp
+        isGitHubConfigured,
+        login,
+        lock
       }}
     >
       {children}

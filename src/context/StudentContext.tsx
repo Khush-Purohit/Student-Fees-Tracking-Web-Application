@@ -7,7 +7,7 @@ import {
   FilterStatus,
   MonthMetrics
 } from '../types';
-import { storageService, INITIAL_DATABASE } from '../services/storageService';
+import { storageService } from '../services/storageService';
 import { syncService } from '../services/syncService';
 import { useAuth } from './AuthContext';
 import { getCurrentMonthKey, getTodayDateString } from '../utils/dateUtils';
@@ -102,19 +102,16 @@ const DEMO_STUDENTS: Student[] = [
 ];
 
 export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isUnlocked, isDemoMode, config, pat } = useAuth();
+  const { isUnlocked, isGitHubConfigured, config, pat } = useAuth();
 
   const [database, setDatabase] = useState<StudentDatabase>(() => {
     const cached = storageService.getCachedDatabase();
-    if (cached) return cached;
-    if (isDemoMode) {
-      return {
-        version: 1,
-        lastUpdated: new Date().toISOString(),
-        students: DEMO_STUDENTS
-      };
-    }
-    return INITIAL_DATABASE;
+    if (cached && cached.students.length > 0) return cached;
+    return {
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+      students: DEMO_STUDENTS
+    };
   });
 
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentMonthKey());
@@ -134,44 +131,42 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!isUnlocked) return;
 
-    if (isDemoMode) {
+    if (!isGitHubConfigured || !config || !pat) {
       const cached = storageService.getCachedDatabase();
       if (!cached || cached.students.length === 0) {
-        const demoDb: StudentDatabase = {
+        const initialDb: StudentDatabase = {
           version: 1,
           lastUpdated: new Date().toISOString(),
           students: DEMO_STUDENTS
         };
-        storageService.setCachedDatabase(demoDb);
-        setDatabase(demoDb);
+        storageService.setCachedDatabase(initialDb);
+        setDatabase(initialDb);
       }
       setSyncStatus('synced');
       setLastSyncTime(new Date().toLocaleTimeString());
       return;
     }
 
-    if (config && pat) {
-      let isMounted = true;
-      setSyncStatus('syncing');
+    let isMounted = true;
+    setSyncStatus('syncing');
 
-      syncService.pull(pat, config).then((res) => {
-        if (!isMounted) return;
-        setDatabase(res.database);
-        if (res.success) {
-          setSyncStatus('synced');
-          setLastSyncTime(new Date().toLocaleTimeString());
-          setSyncError(null);
-        } else {
-          setSyncStatus('error');
-          setSyncError(res.error || 'Sync pull failed');
-        }
-      });
+    syncService.pull(pat, config).then((res) => {
+      if (!isMounted) return;
+      setDatabase(res.database);
+      if (res.success) {
+        setSyncStatus('synced');
+        setLastSyncTime(new Date().toLocaleTimeString());
+        setSyncError(null);
+      } else {
+        setSyncStatus('error');
+        setSyncError(res.error || 'Sync pull failed');
+      }
+    });
 
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [isUnlocked, isDemoMode, config, pat]);
+    return () => {
+      isMounted = false;
+    };
+  }, [isUnlocked, isGitHubConfigured, config, pat]);
 
   // Persist mutations & push sync helper
   const commitDatabaseMutation = useCallback(
@@ -181,8 +176,8 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         next.lastUpdated = new Date().toISOString();
         storageService.setCachedDatabase(next);
 
-        // Demo mode: purely local
-        if (isDemoMode || !config || !pat) {
+        // Local storage mode: purely local
+        if (!isGitHubConfigured || !config || !pat) {
           setSyncStatus('synced');
           setLastSyncTime(new Date().toLocaleTimeString());
           return next;
@@ -205,18 +200,16 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return next;
       });
     },
-    [isDemoMode, config, pat]
+    [isGitHubConfigured, config, pat]
   );
 
   // Manual Trigger Sync
   const triggerSync = useCallback(async () => {
-    if (isDemoMode) {
+    if (!isGitHubConfigured || !config || !pat) {
       setSyncStatus('synced');
       setLastSyncTime(new Date().toLocaleTimeString());
       return;
     }
-
-    if (!config || !pat) return;
 
     setSyncStatus('syncing');
     setSyncError(null);
@@ -230,7 +223,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSyncStatus('error');
       setSyncError(res.error || 'Sync failed');
     }
-  }, [isDemoMode, config, pat]);
+  }, [isGitHubConfigured, config, pat]);
 
   // Add Student
   const addStudent = useCallback(

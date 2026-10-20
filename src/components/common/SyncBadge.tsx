@@ -5,13 +5,17 @@ import { useAuth } from '../../context/AuthContext';
 
 export const SyncBadge: React.FC = () => {
   const { syncStatus, lastSyncTime, syncError, triggerSync } = useStudents();
-  const { isDemoMode } = useAuth();
+  const { isGitHubConfigured } = useAuth();
 
-  if (isDemoMode) {
+  if (!isGitHubConfigured) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-        Demo Mode
+      <span
+        title="Running in local browser storage mode. To sync with GitHub, enter your repository details in src/config/authConfig.ts"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700/60"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <span className="hidden sm:inline">Local Storage</span>
+        <span className="sm:hidden">Local</span>
       </span>
     );
   }
